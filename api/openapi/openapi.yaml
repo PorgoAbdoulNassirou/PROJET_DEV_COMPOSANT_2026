@@ -1,0 +1,552 @@
+openapi: 3.0.3
+info:
+  title: API Ventes
+  version: 1.0.0
+  description: |
+    API REST de gestion des ventes d'une chaine de distribution (donnees fictives).
+
+    - Les ventes sont alimentees par le DAG Airflow `ventes_etl` (source `ETL`)
+      et peuvent etre creees, modifiees ou supprimees via l'API (source `API`).
+    - Les clients sont alimentes par le DAG et exposes en lecture seule.
+    - Les montants (`montant_brut`, `montant_remise`, `montant_net`) sont toujours
+      calcules par le serveur, en francs CFA (XOF), arrondis a l'unite.
+    - La suppression est logique : une vente supprimee n'est plus visible et
+      n'est jamais recreee par le DAG.
+    - Chaque reponse porte un en-tete `X-Request-Id`, repris dans les journaux
+      centralises (Elasticsearch / Kibana). Il peut etre fourni par le client.
+
+    Projet Developpement a base de composants et services web - IBAM 2026 - Groupe 4 SIE.
+servers:
+  - url: http://localhost:3000
+    description: Environnement Docker Compose local
+tags:
+  - name: Ventes
+    description: Operations CRUD sur les ventes
+  - name: Clients
+    description: Referentiel clients (lecture seule)
+  - name: ETL
+    description: Suivi des executions du DAG Airflow
+  - name: Supervision
+paths:
+  /sante:
+    get:
+      tags: [Supervision]
+      summary: Etat de l'API et de la connexion MongoDB
+      responses:
+        '200':
+          description: Service operationnel
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sante' }
+        '503':
+          description: MongoDB injoignable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sante' }
+
+  /api/v1/ventes:
+    get:
+      tags: [Ventes]
+      summary: Lister les ventes (pagination, filtres, tri)
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limite' }
+        - { name: code_client, in: query, schema: { type: string, pattern: '^CLI-\d{4}$' }, example: CLI-0012 }
+        - { name: code_produit, in: query, schema: { type: string, pattern: '^PRD-\d{3}$' } }
+        - { name: categorie, in: query, schema: { type: string }, description: 'Insensible a la casse', example: Alimentation }
+        - { name: statut, in: query, schema: { $ref: '#/components/schemas/Statut' } }
+        - { name: mode_paiement, in: query, schema: { $ref: '#/components/schemas/ModePaiement' } }
+        - { name: canal, in: query, schema: { $ref: '#/components/schemas/Canal' } }
+        - { name: point_vente, in: query, schema: { type: string }, example: OUAGA-CENTRE }
+        - { name: source, in: query, schema: { type: string, enum: [ETL, API] } }
+        - { name: date_debut, in: query, schema: { type: string, format: date-time }, example: '2026-10-01T00:00:00Z' }
+        - { name: date_fin, in: query, schema: { type: string, format: date-time }, description: 'Doit etre >= date_debut' }
+        - { name: montant_min, in: query, schema: { type: number, minimum: 0 }, description: 'Sur montant_net' }
+        - { name: montant_max, in: query, schema: { type: number, minimum: 0 } }
+        - name: tri
+          in: query
+          schema:
+            type: string
+            enum: [date_vente, -date_vente, montant_net, -montant_net, reference, -reference]
+            default: -date_vente
+      responses:
+        '200':
+          description: Page de ventes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/Vente' }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/Validation' }
+        '503': { $ref: '#/components/responses/BaseIndisponible' }
+    post:
+      tags: [Ventes]
+      summary: Creer une vente
+      description: |
+        Le client doit exister dans le referentiel. Si `reference` est omise,
+        elle est generee sous la forme `VTE-AAAAMMJJ-XXXXXX`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VenteCreation' }
+            example:
+              date_vente: '2026-10-15T10:30:00Z'
+              code_client: CLI-0012
+              produit: { code: PRD-002, libelle: Huile végétale 5 L, categorie: Alimentation }
+              quantite: 3
+              prix_unitaire: 6500
+              remise_pct: 5
+              mode_paiement: MOBILE_MONEY
+              canal: BOUTIQUE
+              point_vente: OUAGA-CENTRE
+      responses:
+        '201':
+          description: Vente creee
+          headers:
+            Location: { schema: { type: string }, description: URL de la ressource creee }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vente' }
+        '400': { $ref: '#/components/responses/Validation' }
+        '409': { $ref: '#/components/responses/Conflit' }
+        '422': { $ref: '#/components/responses/ClientInconnu' }
+        '503': { $ref: '#/components/responses/BaseIndisponible' }
+
+  /api/v1/ventes/statistiques:
+    get:
+      tags: [Ventes]
+      summary: Indicateurs des ventes validees (chiffre d'affaires, repartitions)
+      parameters:
+        - { name: date_debut, in: query, schema: { type: string, format: date-time } }
+        - { name: date_fin, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Indicateurs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Statistiques' }
+        '400': { $ref: '#/components/responses/Validation' }
+
+  /api/v1/ventes/{reference}:
+    parameters:
+      - { $ref: '#/components/parameters/Reference' }
+    get:
+      tags: [Ventes]
+      summary: Consulter une vente
+      responses:
+        '200':
+          description: Vente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vente' }
+        '400': { $ref: '#/components/responses/Validation' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+    put:
+      tags: [Ventes]
+      summary: Remplacer une vente
+      description: Tous les champs modifiables sont attendus ; les champs facultatifs omis reprennent leur valeur par defaut.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VenteRemplacement' }
+      responses:
+        '200':
+          description: Vente mise a jour (version incrementee)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vente' }
+        '400': { $ref: '#/components/responses/Validation' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/ClientInconnu' }
+    patch:
+      tags: [Ventes]
+      summary: Modifier partiellement une vente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VenteModification' }
+            example: { statut: ANNULEE }
+      responses:
+        '200':
+          description: Vente mise a jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vente' }
+        '400': { $ref: '#/components/responses/Validation' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+        '422': { $ref: '#/components/responses/ClientInconnu' }
+    delete:
+      tags: [Ventes]
+      summary: Supprimer une vente (suppression logique)
+      responses:
+        '204': { description: Vente supprimee }
+        '400': { $ref: '#/components/responses/Validation' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  /api/v1/clients:
+    get:
+      tags: [Clients]
+      summary: Lister les clients
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limite' }
+        - { name: q, in: query, schema: { type: string, minLength: 2 }, description: 'Recherche sur code, nom, prenom, email' }
+        - { name: ville, in: query, schema: { type: string } }
+        - { name: type_client, in: query, schema: { type: string, enum: [PARTICULIER, PROFESSIONNEL] } }
+      responses:
+        '200':
+          description: Page de clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/Client' }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/Validation' }
+
+  /api/v1/clients/{code}:
+    get:
+      tags: [Clients]
+      summary: Consulter un client et le resume de ses achats
+      parameters:
+        - { $ref: '#/components/parameters/CodeClient' }
+      responses:
+        '200':
+          description: Client
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Client' }
+                  - type: object
+                    properties:
+                      resume_achats:
+                        type: object
+                        properties:
+                          nombre_ventes: { type: integer }
+                          total_achats: { type: number }
+                          derniere_vente: { type: string, format: date-time, nullable: true }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  /api/v1/clients/{code}/ventes:
+    get:
+      tags: [Clients]
+      summary: Ventes d'un client
+      parameters:
+        - { $ref: '#/components/parameters/CodeClient' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limite' }
+      responses:
+        '200':
+          description: Page de ventes du client
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  /api/v1/etl/executions:
+    get:
+      tags: [ETL]
+      summary: Historique des executions du DAG ventes_etl
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limite' }
+        - { name: statut, in: query, schema: { type: string, enum: [SUCCES, ECHEC] } }
+      responses:
+        '200':
+          description: Executions, de la plus recente a la plus ancienne
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  donnees:
+                    type: array
+                    items: { $ref: '#/components/schemas/ExecutionEtl' }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+
+  /api/v1/etl/executions/derniere:
+    get:
+      tags: [ETL]
+      summary: Derniere execution du DAG et son bilan
+      responses:
+        '200':
+          description: Bilan de la derniere execution
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExecutionEtl' }
+        '404': { $ref: '#/components/responses/Introuvable' }
+
+  /api/v1/etl/rejets:
+    get:
+      tags: [ETL]
+      summary: Lignes ecartees par le DAG (invalides, doublons, conflits)
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limite' }
+        - { name: run_id, in: query, schema: { type: string } }
+        - { name: entite, in: query, schema: { type: string, enum: [vente, client] } }
+        - { name: categorie, in: query, schema: { type: string, enum: [INVALIDE, DOUBLON, CONFLIT] } }
+        - { name: motif, in: query, schema: { type: string }, example: CLIENT_INCONNU }
+      responses:
+        '200':
+          description: Page de rejets
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limite:
+      name: limite
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Reference:
+      name: reference
+      in: path
+      required: true
+      schema: { type: string, pattern: '^VTE-\d{8}-[A-Z0-9]{4,10}$' }
+      example: VTE-20261001-0001
+    CodeClient:
+      name: code
+      in: path
+      required: true
+      schema: { type: string, pattern: '^CLI-\d{4}$' }
+      example: CLI-0001
+
+  responses:
+    Validation:
+      description: Donnees ou parametres invalides (VALIDATION_ECHOUEE, JSON_INVALIDE)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erreur' }
+          example:
+            erreur:
+              code: VALIDATION_ECHOUEE
+              message: Les donnees envoyees sont invalides
+              details:
+                - { champ: quantite, message: quantite doit etre superieur ou egal a 1 }
+              request_id: 6f1c2b0e-8f7a-4a51-9a52-3c1f0f5d2a10
+              horodatage: '2026-10-19T10:00:00.000Z'
+    Introuvable:
+      description: Ressource inexistante ou supprimee (RESSOURCE_INTROUVABLE)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erreur' }
+    Conflit:
+      description: Reference deja utilisee (REFERENCE_EXISTANTE)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erreur' }
+    ClientInconnu:
+      description: Le client n'existe pas dans le referentiel (CLIENT_INCONNU)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erreur' }
+    BaseIndisponible:
+      description: MongoDB injoignable (BASE_INDISPONIBLE). En-tete Retry-After fourni.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erreur' }
+
+  schemas:
+    Statut:
+      type: string
+      enum: [VALIDEE, ANNULEE]
+    ModePaiement:
+      type: string
+      enum: [ESPECES, MOBILE_MONEY, CARTE_BANCAIRE, VIREMENT]
+    Canal:
+      type: string
+      enum: [BOUTIQUE, EN_LIGNE, TELEPHONE]
+    Produit:
+      type: object
+      required: [code, libelle]
+      properties:
+        code: { type: string, pattern: '^PRD-\d{3}$', example: PRD-001 }
+        libelle: { type: string, maxLength: 150, example: Riz parfumé 25 kg }
+        categorie: { type: string, nullable: true, example: Alimentation }
+    VenteModification:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        date_vente: { type: string, format: date-time, description: 'Ne peut pas etre dans le futur' }
+        code_client: { type: string, pattern: '^CLI-\d{4}$' }
+        produit: { $ref: '#/components/schemas/Produit' }
+        quantite: { type: integer, minimum: 1, maximum: 1000 }
+        prix_unitaire: { type: integer, minimum: 1, maximum: 10000000, description: 'En XOF' }
+        remise_pct: { type: number, minimum: 0, maximum: 50, default: 0 }
+        mode_paiement: { $ref: '#/components/schemas/ModePaiement' }
+        canal: { $ref: '#/components/schemas/Canal' }
+        point_vente: { type: string, maxLength: 40, nullable: true }
+        statut: { $ref: '#/components/schemas/Statut' }
+    VenteRemplacement:
+      allOf:
+        - { $ref: '#/components/schemas/VenteModification' }
+        - required: [date_vente, code_client, produit, quantite, prix_unitaire, mode_paiement, canal]
+    VenteCreation:
+      allOf:
+        - { $ref: '#/components/schemas/VenteRemplacement' }
+        - type: object
+          properties:
+            reference: { type: string, pattern: '^VTE-\d{8}-[A-Z0-9]{4,10}$', description: 'Facultative' }
+    Vente:
+      type: object
+      properties:
+        reference: { type: string, example: VTE-20261001-0001 }
+        date_vente: { type: string, format: date-time }
+        code_client: { type: string, example: CLI-0017 }
+        produit: { $ref: '#/components/schemas/Produit' }
+        quantite: { type: integer, example: 18 }
+        prix_unitaire: { type: number, example: 750 }
+        remise_pct: { type: number, example: 0 }
+        montant_brut: { type: number, example: 13500 }
+        montant_remise: { type: number, example: 0 }
+        montant_net: { type: number, example: 13500 }
+        devise: { type: string, enum: [XOF] }
+        mode_paiement: { $ref: '#/components/schemas/ModePaiement' }
+        canal: { $ref: '#/components/schemas/Canal' }
+        point_vente: { type: string, nullable: true, example: OUAGA-CENTRE }
+        statut: { $ref: '#/components/schemas/Statut' }
+        source: { type: string, enum: [ETL, API] }
+        supprime: { type: boolean }
+        version: { type: integer, description: 'Incrementee a chaque modification' }
+        etl:
+          type: object
+          nullable: true
+          description: Tracabilite du chargement (ventes de source ETL)
+          properties:
+            hash: { type: string }
+            run_id: { type: string }
+            fichier: { type: string }
+            ligne: { type: integer }
+            charge_le: { type: string, format: date-time }
+        cree_le: { type: string, format: date-time }
+        modifie_le: { type: string, format: date-time }
+    Client:
+      type: object
+      properties:
+        code_client: { type: string, example: CLI-0001 }
+        nom: { type: string }
+        prenom: { type: string }
+        email: { type: string, nullable: true }
+        telephone: { type: string, nullable: true, example: '+22670123456' }
+        ville: { type: string, nullable: true }
+        type_client: { type: string, enum: [PARTICULIER, PROFESSIONNEL] }
+        date_inscription: { type: string, format: date-time, nullable: true }
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer }
+        limite: { type: integer }
+        total: { type: integer }
+        pages: { type: integer }
+    Statistiques:
+      type: object
+      properties:
+        devise: { type: string }
+        nombre_ventes: { type: integer }
+        chiffre_affaires: { type: number }
+        remises_accordees: { type: number }
+        panier_moyen: { type: number }
+        premiere_vente: { type: string, format: date-time }
+        derniere_vente: { type: string, format: date-time }
+        par_mode_paiement: { type: array, items: { $ref: '#/components/schemas/Repartition' } }
+        par_categorie: { type: array, items: { $ref: '#/components/schemas/Repartition' } }
+        par_point_vente: { type: array, items: { $ref: '#/components/schemas/Repartition' } }
+    Repartition:
+      type: object
+      properties:
+        cle: { type: string }
+        nombre: { type: integer }
+        chiffre_affaires: { type: number }
+    ExecutionEtl:
+      type: object
+      properties:
+        run_id: { type: string }
+        dag_id: { type: string }
+        type_declenchement: { type: string, example: manual }
+        statut: { type: string, enum: [SUCCES, ECHEC] }
+        debut: { type: string, format: date-time }
+        fin: { type: string, format: date-time }
+        duree_secondes: { type: number }
+        taches_en_echec: { type: array, items: { type: string } }
+        taches_non_executees: { type: array, items: { type: string }, description: 'Taches non lancees suite a un echec en amont' }
+        fichiers:
+          type: array
+          items:
+            type: object
+            properties:
+              nom: { type: string }
+              lignes: { type: integer }
+              sha256: { type: string }
+        clients:
+          type: object
+          properties:
+            lus: { type: integer }
+            valides: { type: integer }
+            rejetes: { type: integer }
+            doublons: { type: integer }
+            inseres: { type: integer }
+            mis_a_jour: { type: integer }
+            inchanges: { type: integer }
+        ventes:
+          type: object
+          properties:
+            lignes_lues: { type: integer }
+            valides: { type: integer }
+            rejetees: { type: integer }
+            doublons_exacts: { type: integer }
+            versions_obsoletes: { type: integer }
+            motifs_rejet: { type: object, additionalProperties: { type: integer } }
+            inserees: { type: integer }
+            mises_a_jour: { type: integer }
+            inchangees: { type: integer }
+            ignorees_supprimees: { type: integer }
+            conflits: { type: integer }
+        controles:
+          type: array
+          items:
+            type: object
+            properties:
+              controle: { type: string }
+              conforme: { type: boolean }
+              detail: { type: string }
+    Sante:
+      type: object
+      properties:
+        statut: { type: string, enum: [OK, DEGRADE] }
+        service: { type: string }
+        version: { type: string }
+        mongodb: { type: string, enum: [connecte, deconnecte] }
+        uptime_s: { type: integer }
+    Erreur:
+      type: object
+      properties:
+        erreur:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION_ECHOUEE, JSON_INVALIDE, RESSOURCE_INTROUVABLE, ROUTE_INTROUVABLE,
+                     REFERENCE_EXISTANTE, CLIENT_INCONNU, CORPS_TROP_VOLUMINEUX, BASE_INDISPONIBLE, ERREUR_INTERNE]
+            message: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  champ: { type: string }
+                  message: { type: string }
+            request_id: { type: string }
+            horodatage: { type: string, format: date-time }

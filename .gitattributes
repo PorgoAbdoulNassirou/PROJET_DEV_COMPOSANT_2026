@@ -1,0 +1,6 @@
+# Fins de ligne LF pour tout fichier texte : les scripts et configurations
+# sont executes dans des conteneurs Linux.
+* text=auto eol=lf
+*.pptx binary
+*.png binary
+*.jpg binary

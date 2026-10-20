@@ -1,0 +1,1197 @@
+{
+  "info": {
+    "_postman_id": "5e1f6c3a-2b4d-4a8e-9c71-0d4f2a6b8e10",
+    "name": "API Ventes - Groupe 4 SIE",
+    "description": "Tests des routes de l'API ventes (Express.js / MongoDB). A executer apres un chargement par le DAG ventes_etl.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Supervision",
+      "item": [
+        {
+          "name": "Sante de l'API",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"MongoDB connecte\", () => pm.expect(pm.response.json().mongodb).to.eql(\"connecte\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sante",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sante"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Contrat OpenAPI",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"OpenAPI 3\", () => pm.expect(pm.response.json().openapi).to.match(/^3\\./));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "openapi.json"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Consultation des ventes",
+      "item": [
+        {
+          "name": "Lister les ventes (page 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const corps = pm.response.json();",
+                  "pm.test(\"5 ventes et pagination\", () => {",
+                  "  pm.expect(corps.donnees).to.have.lengthOf(5);",
+                  "  pm.expect(corps.pagination).to.include({ page: 1, limite: 5 });",
+                  "  pm.expect(corps.pagination.total).to.be.above(700);",
+                  "});",
+                  "pm.test(\"Tri par date decroissante\", () => {",
+                  "  const dates = corps.donnees.map(v => v.date_vente);",
+                  "  pm.expect(dates).to.eql([...dates].sort().reverse());",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes?page=1&limite=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limite",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filtrer par client, paiement et periode",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Tous les resultats respectent les filtres\", () => {",
+                  "  pm.response.json().donnees.forEach(v => {",
+                  "    pm.expect(v.code_client).to.eql(\"CLI-0012\");",
+                  "    pm.expect(v.mode_paiement).to.eql(\"MOBILE_MONEY\");",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes?code_client=CLI-0012&mode_paiement=mobile_money&date_debut=2026-10-01T00:00:00Z&date_fin=2026-10-14T23:59:59Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ],
+              "query": [
+                {
+                  "key": "code_client",
+                  "value": "CLI-0012"
+                },
+                {
+                  "key": "mode_paiement",
+                  "value": "mobile_money"
+                },
+                {
+                  "key": "date_debut",
+                  "value": "2026-10-01T00:00:00Z"
+                },
+                {
+                  "key": "date_fin",
+                  "value": "2026-10-14T23:59:59Z"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filtrer par montant et trier",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Montants >= 100000, ordre decroissant\", () => {",
+                  "  const m = pm.response.json().donnees.map(v => v.montant_net);",
+                  "  m.forEach(x => pm.expect(x).to.be.at.least(100000));",
+                  "  pm.expect(m).to.eql([...m].sort((a, b) => b - a));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes?montant_min=100000&tri=-montant_net",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ],
+              "query": [
+                {
+                  "key": "montant_min",
+                  "value": "100000"
+                },
+                {
+                  "key": "tri",
+                  "value": "-montant_net"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ventes chargees par l'ETL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"reference_etl\", pm.response.json().donnees[0].reference);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes?source=ETL&limite=1&tri=reference",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ],
+              "query": [
+                {
+                  "key": "source",
+                  "value": "ETL"
+                },
+                {
+                  "key": "limite",
+                  "value": "1"
+                },
+                {
+                  "key": "tri",
+                  "value": "reference"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consulter une vente chargee par l'ETL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Tracabilite ETL\", () => {",
+                  "  const v = pm.response.json();",
+                  "  pm.expect(v.source).to.eql(\"ETL\");",
+                  "  pm.expect(v.etl).to.include.keys(\"hash\", \"run_id\", \"fichier\", \"ligne\");",
+                  "  pm.expect(v.montant_net).to.eql(v.montant_brut - v.montant_remise);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/{{reference_etl}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "{{reference_etl}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Statistiques",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Indicateurs presents\", () => {",
+                  "  const s = pm.response.json();",
+                  "  pm.expect(s.devise).to.eql(\"XOF\");",
+                  "  pm.expect(s.nombre_ventes).to.be.above(0);",
+                  "  pm.expect(s.par_mode_paiement).to.be.an(\"array\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/statistiques",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "statistiques"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Cycle de vie d'une vente (CRUD)",
+      "item": [
+        {
+          "name": "Creer une vente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 201\", () => pm.response.to.have.status(201));",
+                  "const v = pm.response.json();",
+                  "pm.test(\"Montants calcules par le serveur\", () => {",
+                  "  pm.expect(v.montant_brut).to.eql(19500);",
+                  "  pm.expect(v.montant_remise).to.eql(975);",
+                  "  pm.expect(v.montant_net).to.eql(18525);",
+                  "});",
+                  "pm.test(\"Reference generee et en-tete Location\", () => {",
+                  "  pm.expect(v.reference).to.match(/^VTE-20261015-[A-F0-9]{6}$/);",
+                  "  pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/api/v1/ventes/\" + v.reference);",
+                  "});",
+                  "pm.test(\"Source API, version 1\", () => pm.expect(v).to.include({ source: \"API\", version: 1, statut: \"VALIDEE\" }));",
+                  "pm.collectionVariables.set(\"reference_creee\", v.reference);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date_vente\": \"2026-10-15T10:30:00Z\",\n  \"code_client\": \"CLI-0012\",\n  \"produit\": {\n    \"code\": \"PRD-002\",\n    \"libelle\": \"Huile végétale 5 L\",\n    \"categorie\": \"Alimentation\"\n  },\n  \"quantite\": 3,\n  \"prix_unitaire\": 6500,\n  \"remise_pct\": 5,\n  \"mode_paiement\": \"MOBILE_MONEY\",\n  \"canal\": \"BOUTIQUE\",\n  \"point_vente\": \"OUAGA-CENTRE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Consulter la vente creee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Bonne vente\", () => pm.expect(pm.response.json().reference).to.eql(pm.collectionVariables.get(\"reference_creee\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/{{reference_creee}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "{{reference_creee}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remplacer la vente (PUT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Remplacement complet et version 2\", () => {",
+                  "  const v = pm.response.json();",
+                  "  pm.expect(v).to.include({ quantite: 4, remise_pct: 0, montant_net: 26000, version: 2 });",
+                  "  pm.expect(v.point_vente).to.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/{{reference_creee}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "{{reference_creee}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date_vente\": \"2026-10-15T10:30:00Z\",\n  \"code_client\": \"CLI-0012\",\n  \"produit\": {\n    \"code\": \"PRD-002\",\n    \"libelle\": \"Huile végétale 5 L\",\n    \"categorie\": \"Alimentation\"\n  },\n  \"quantite\": 4,\n  \"prix_unitaire\": 6500,\n  \"mode_paiement\": \"MOBILE_MONEY\",\n  \"canal\": \"BOUTIQUE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Annuler la vente (PATCH)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Seul le statut change\", () => pm.expect(pm.response.json()).to.include({ statut: \"ANNULEE\", quantite: 4, version: 3 }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/{{reference_creee}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "{{reference_creee}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statut\": \"ANNULEE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Supprimer la vente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/{{reference_creee}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "{{reference_creee}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Vente supprimee introuvable",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Code RESSOURCE_INTROUVABLE\", () => pm.expect(pm.response.json().erreur.code).to.eql(\"RESSOURCE_INTROUVABLE\"));",
+                  "",
+                  "pm.test(\"Format d'erreur normalise\", () => {",
+                  "  const e = pm.response.json().erreur;",
+                  "  pm.expect(e).to.include.keys(\"code\", \"message\", \"request_id\", \"horodatage\");",
+                  "  pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.eql(e.request_id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/{{reference_creee}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "{{reference_creee}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Cas d'erreur",
+      "item": [
+        {
+          "name": "400 - donnees invalides",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Un detail par champ invalide\", () => {",
+                  "  const champs = pm.response.json().erreur.details.map(d => d.champ).sort();",
+                  "  pm.expect(champs).to.eql([\"mode_paiement\", \"quantite\", \"remise_pct\"]);",
+                  "});",
+                  "",
+                  "pm.test(\"Format d'erreur normalise\", () => {",
+                  "  const e = pm.response.json().erreur;",
+                  "  pm.expect(e).to.include.keys(\"code\", \"message\", \"request_id\", \"horodatage\");",
+                  "  pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.eql(e.request_id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date_vente\": \"2026-10-15T10:30:00Z\",\n  \"code_client\": \"CLI-0012\",\n  \"produit\": {\n    \"code\": \"PRD-002\",\n    \"libelle\": \"Huile végétale 5 L\",\n    \"categorie\": \"Alimentation\"\n  },\n  \"quantite\": 0,\n  \"prix_unitaire\": 6500,\n  \"remise_pct\": 80,\n  \"mode_paiement\": \"CHEQUE\",\n  \"canal\": \"BOUTIQUE\",\n  \"point_vente\": \"OUAGA-CENTRE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "400 - montant impose par le client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Champ refuse\", () => pm.expect(pm.response.json().erreur.details[0].champ).to.eql(\"montant_net\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date_vente\": \"2026-10-15T10:30:00Z\",\n  \"code_client\": \"CLI-0012\",\n  \"produit\": {\n    \"code\": \"PRD-002\",\n    \"libelle\": \"Huile végétale 5 L\",\n    \"categorie\": \"Alimentation\"\n  },\n  \"quantite\": 3,\n  \"prix_unitaire\": 6500,\n  \"remise_pct\": 5,\n  \"mode_paiement\": \"MOBILE_MONEY\",\n  \"canal\": \"BOUTIQUE\",\n  \"point_vente\": \"OUAGA-CENTRE\",\n  \"montant_net\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "400 - JSON mal forme",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Code JSON_INVALIDE\", () => pm.expect(pm.response.json().erreur.code).to.eql(\"JSON_INVALIDE\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"quantite\": 3,"
+            }
+          }
+        },
+        {
+          "name": "400 - reference mal formee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/ABC",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "ABC"
+              ]
+            }
+          }
+        },
+        {
+          "name": "400 - pagination hors bornes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes?limite=1000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ],
+              "query": [
+                {
+                  "key": "limite",
+                  "value": "1000"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "404 - vente inexistante",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/VTE-20991231-ZZZZ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "VTE-20991231-ZZZZ"
+              ]
+            }
+          }
+        },
+        {
+          "name": "404 - route inconnue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Code ROUTE_INTROUVABLE\", () => pm.expect(pm.response.json().erreur.code).to.eql(\"ROUTE_INTROUVABLE\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/factures",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "factures"
+              ]
+            }
+          }
+        },
+        {
+          "name": "409 - reference deja utilisee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Code REFERENCE_EXISTANTE\", () => pm.expect(pm.response.json().erreur.code).to.eql(\"REFERENCE_EXISTANTE\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date_vente\": \"2026-10-15T10:30:00Z\",\n  \"code_client\": \"CLI-0012\",\n  \"produit\": {\n    \"code\": \"PRD-002\",\n    \"libelle\": \"Huile végétale 5 L\",\n    \"categorie\": \"Alimentation\"\n  },\n  \"quantite\": 3,\n  \"prix_unitaire\": 6500,\n  \"remise_pct\": 5,\n  \"mode_paiement\": \"MOBILE_MONEY\",\n  \"canal\": \"BOUTIQUE\",\n  \"point_vente\": \"OUAGA-CENTRE\",\n  \"reference\": \"{{reference_etl}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "422 - client inconnu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Code CLIENT_INCONNU\", () => pm.expect(pm.response.json().erreur.code).to.eql(\"CLIENT_INCONNU\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date_vente\": \"2026-10-15T10:30:00Z\",\n  \"code_client\": \"CLI-9999\",\n  \"produit\": {\n    \"code\": \"PRD-002\",\n    \"libelle\": \"Huile végétale 5 L\",\n    \"categorie\": \"Alimentation\"\n  },\n  \"quantite\": 3,\n  \"prix_unitaire\": 6500,\n  \"remise_pct\": 5,\n  \"mode_paiement\": \"MOBILE_MONEY\",\n  \"canal\": \"BOUTIQUE\",\n  \"point_vente\": \"OUAGA-CENTRE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Correlation - X-Request-Id fourni",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Identifiant repris dans la reponse\", () => {",
+                  "  pm.expect(pm.response.headers.get(\"X-Request-Id\")).to.eql(\"postman-correlation-0001\");",
+                  "  pm.expect(pm.response.json().erreur.request_id).to.eql(\"postman-correlation-0001\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Request-Id",
+                "value": "postman-correlation-0001"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ventes/VTE-20991231-ZZZZ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ventes",
+                "VTE-20991231-ZZZZ"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Clients et suivi ETL",
+      "item": [
+        {
+          "name": "Lister les clients",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"60 clients valides charges par le DAG\", () => pm.expect(pm.response.json().pagination.total).to.eql(60));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients?limite=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients"
+              ],
+              "query": [
+                {
+                  "key": "limite",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rechercher un client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Filtre applique\", () => pm.response.json().donnees.forEach(c => pm.expect(c.ville).to.eql(\"Ouagadougou\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients?ville=Ouagadougou&type_client=PARTICULIER",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients"
+              ],
+              "query": [
+                {
+                  "key": "ville",
+                  "value": "Ouagadougou"
+                },
+                {
+                  "key": "type_client",
+                  "value": "PARTICULIER"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detail d'un client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Donnees normalisees\", () => {",
+                  "  const c = pm.response.json();",
+                  "  pm.expect(c.code_client).to.eql(\"CLI-0012\");",
+                  "  pm.expect(c.resume_achats).to.include.keys(\"nombre_ventes\", \"total_achats\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/CLI-0012",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "CLI-0012"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ventes d'un client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Ventes du bon client\", () => pm.response.json().donnees.forEach(v => pm.expect(v.code_client).to.eql(\"CLI-0012\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/CLI-0012/ventes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "CLI-0012",
+                "ventes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Derniere execution du DAG",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "const e = pm.response.json();",
+                  "pm.test(\"Execution reussie et controles conformes\", () => {",
+                  "  pm.expect(e.statut).to.eql(\"SUCCES\");",
+                  "  e.controles.forEach(c => pm.expect(c.conforme, c.controle).to.be.true);",
+                  "});",
+                  "pm.test(\"Bilan coherent\", () => {",
+                  "  pm.expect(e.ventes.lignes_lues).to.eql(e.ventes.valides + e.ventes.rejetees + e.ventes.doublons_exacts + e.ventes.versions_obsoletes);",
+                  "});",
+                  "pm.collectionVariables.set(\"run_id\", e.run_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/etl/executions/derniere",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "etl",
+                "executions",
+                "derniere"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rejets d'une execution (client inconnu)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Rejets traces avec fichier et ligne\", () => {",
+                  "  const r = pm.response.json().donnees;",
+                  "  pm.expect(r).to.not.be.empty;",
+                  "  r.forEach(x => {",
+                  "    pm.expect(x).to.include.keys(\"fichier\", \"ligne\", \"motifs\");",
+                  "    pm.expect(x.motifs.map(m => m.code)).to.include(\"CLIENT_INCONNU\");",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/etl/rejets?run_id={{run_id}}&motif=CLIENT_INCONNU",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "etl",
+                "rejets"
+              ],
+              "query": [
+                {
+                  "key": "run_id",
+                  "value": "{{run_id}}"
+                },
+                {
+                  "key": "motif",
+                  "value": "CLIENT_INCONNU"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "reference_etl",
+      "value": ""
+    },
+    {
+      "key": "reference_creee",
+      "value": ""
+    },
+    {
+      "key": "run_id",
+      "value": ""
+    }
+  ]
+}

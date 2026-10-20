@@ -1,0 +1,28 @@
+{
+  "index_patterns": ["airflow-logs-*"],
+  "priority": 200,
+  "template": {
+    "settings": { "number_of_shards": 1, "number_of_replicas": 0 },
+    "mappings": {
+      "dynamic_templates": [
+        { "chaines": { "match_mapping_type": "string", "mapping": { "type": "keyword", "ignore_above": 1024 } } }
+      ],
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "level": { "type": "keyword" },
+        "message": { "type": "text" },
+        "contenu": { "type": "text" },
+        "source_code": { "type": "keyword" },
+        "airflow": {
+          "properties": {
+            "dag_id": { "type": "keyword" },
+            "run_id": { "type": "keyword" },
+            "task_id": { "type": "keyword" },
+            "tentative": { "type": "keyword" }
+          }
+        },
+        "bilan": { "type": "object", "dynamic": true }
+      }
+    }
+  }
+}

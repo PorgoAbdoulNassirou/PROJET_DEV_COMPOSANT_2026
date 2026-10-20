@@ -1,0 +1,286 @@
+# Projet Developpement a base de composants et services web - IBAM 2026 - Groupe 4 SIE
+# API REST de ventes : Express.js, Airflow, MongoDB, ELK
+#
+#   docker compose up -d --build              # demarrage de la plateforme
+#   docker compose --profile test run --rm e2e   # test de bout en bout
+#
+# Les valeurs par defaut ci-dessous permettent un demarrage sans fichier .env ;
+# elles peuvent etre surchargees en copiant .env.example vers .env.
+
+name: ventes-plateforme
+
+x-airflow-commun: &airflow-commun
+  build:
+    context: ./airflow
+  image: ventes-airflow:2.10.5
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@airflow-postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-ventes-groupe4-secret}
+    AIRFLOW__WEBSERVER__WORKERS: "2"
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "30"
+    AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+    # Connexion Airflow utilisee par le DAG (MongoHook)
+    AIRFLOW_CONN_MONGO_VENTES: mongo://${MONGO_ETL_USER:-etl_airflow}:${MONGO_ETL_PASSWORD:-etl_airflow_mdp}@mongo:27017/${MONGO_DB:-ventes_db}?authSource=${MONGO_DB:-ventes_db}&serverSelectionTimeoutMS=5000
+    # Base dediee aux tests d'integration du chargement
+    ETL_MONGO_URI_TEST: mongodb://${MONGO_ETL_USER:-etl_airflow}:${MONGO_ETL_PASSWORD:-etl_airflow_mdp}@mongo:27017/${MONGO_DB:-ventes_db}_test?authSource=${MONGO_DB:-ventes_db}
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/tests:/opt/airflow/tests
+    - ./data/source:/opt/airflow/data/source
+    - airflow_logs:/opt/airflow/logs
+    - airflow_staging:/opt/airflow/staging
+  depends_on: &airflow-dependances
+    airflow-postgres:
+      condition: service_healthy
+    mongo:
+      condition: service_healthy
+
+services:
+
+  # ---------------------------------------------------------------- MongoDB
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-admin_mdp}
+      MONGO_DB: ${MONGO_DB:-ventes_db}
+      MONGO_API_USER: ${MONGO_API_USER:-api_ventes}
+      MONGO_API_PASSWORD: ${MONGO_API_PASSWORD:-api_ventes_mdp}
+      MONGO_ETL_USER: ${MONGO_ETL_USER:-etl_airflow}
+      MONGO_ETL_PASSWORD: ${MONGO_ETL_PASSWORD:-etl_airflow_mdp}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ---------------------------------------------------------------- API Express
+  api:
+    build:
+      context: ./api
+      target: production
+    image: ventes-api:1.0.0
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGO_URI: mongodb://${MONGO_API_USER:-api_ventes}:${MONGO_API_PASSWORD:-api_ventes_mdp}@mongo:27017/${MONGO_DB:-ventes_db}?authSource=${MONGO_DB:-ventes_db}
+      LOG_LEVEL: info
+      LOG_FILE: /app/logs/api.log
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - api_logs:/app/logs
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------- Airflow
+  airflow-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow}
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  airflow-init:
+    <<: *airflow-commun
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        set -e
+        airflow db migrate
+        if ! airflow users list | grep -qw "$${_AIRFLOW_ADMIN_USER}"; then
+          airflow users create --role Admin \
+            --username "$${_AIRFLOW_ADMIN_USER}" --password "$${_AIRFLOW_ADMIN_PASSWORD}" \
+            --firstname Groupe4 --lastname SIE --email admin@exemple.bf
+        fi
+    environment:
+      <<: *airflow-env
+      _AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER:-admin}
+      _AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-commun
+    command: webserver
+    restart: unless-stopped
+    ports:
+      - "${AIRFLOW_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      <<: *airflow-dependances
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-commun
+    command: scheduler
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8974/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    environment:
+      <<: *airflow-env
+      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    depends_on:
+      <<: *airflow-dependances
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ---------------------------------------------------------------- ELK
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION:-8.15.3}
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      cluster.name: ventes-logs
+      cluster.routing.allocation.disk.threshold_enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "${ES_PORT:-9200}:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${ELK_VERSION:-8.15.3}
+    restart: unless-stopped
+    environment:
+      LS_JAVA_OPTS: -Xms256m -Xmx256m
+    volumes:
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELK_VERSION:-8.15.3}
+    restart: unless-stopped
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      I18N_LOCALE: fr-FR
+      TELEMETRY_OPTIN: "false"
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q '\"level\":\"available\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  elk-setup:
+    image: docker.elastic.co/kibana/kibana:${ELK_VERSION:-8.15.3}
+    entrypoint: ["bash", "/setup/setup.sh"]
+    volumes:
+      - ./elk/setup:/setup:ro
+      - ./elk/kibana:/kibana:ro
+    restart: "no"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:${ELK_VERSION:-8.15.3}
+    restart: unless-stopped
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ./elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - api_logs:/logs/api:ro
+      - airflow_logs:/logs/airflow:ro
+      - filebeat_data:/usr/share/filebeat/data
+    depends_on:
+      - logstash
+
+  # ---------------------------------------------------------------- Tests (profil "test")
+  api-tests:
+    profiles: ["test"]
+    build:
+      context: ./api
+      target: test
+    image: ventes-api:tests
+    environment:
+      MONGO_URI_TEST: mongodb://${MONGO_API_USER:-api_ventes}:${MONGO_API_PASSWORD:-api_ventes_mdp}@mongo:27017/${MONGO_DB:-ventes_db}_test?authSource=${MONGO_DB:-ventes_db}
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  e2e:
+    profiles: ["test"]
+    image: node:22-alpine
+    working_dir: /e2e
+    command: ["node", "--test", "--test-reporter=spec", "--test-concurrency=1"]
+    environment:
+      API_URL: http://api:3000
+      AIRFLOW_URL: http://airflow-webserver:8080
+      AIRFLOW_USER: ${AIRFLOW_ADMIN_USER:-admin}
+      AIRFLOW_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+      ES_URL: http://elasticsearch:9200
+      REPERTOIRE_SOURCE: /data/source
+    volumes:
+      - ./tests/e2e:/e2e:ro
+      - ./data/source:/data/source
+
+  newman:
+    profiles: ["test"]
+    image: postman/newman:6-alpine
+    working_dir: /etc/newman
+    command:
+      - run
+      - ventes-api.postman_collection.json
+      - --environment
+      - docker.postman_environment.json
+      - --reporters
+      - cli,junit
+      - --reporter-junit-export
+      - resultats/newman-resultats.xml
+    volumes:
+      - ./tests/postman:/etc/newman
+
+volumes:
+  mongo_data:
+  api_logs:
+  airflow_db:
+  airflow_logs:
+  airflow_staging:
+  es_data:
+  filebeat_data:

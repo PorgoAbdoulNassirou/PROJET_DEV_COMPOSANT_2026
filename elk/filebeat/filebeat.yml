@@ -1,0 +1,44 @@
+# Collecte des journaux de l'API (JSON) et des journaux de taches Airflow.
+# Les deux sources sont lues depuis des volumes Docker partages et envoyees a Logstash.
+
+filebeat.inputs:
+  - type: filestream
+    id: api-ventes
+    paths:
+      - /logs/api/*.log
+    fields:
+      application: api-ventes
+    fields_under_root: true
+    # Chaque ligne est un objet JSON complet : decodage dans Logstash.
+    parsers:
+      - ndjson:
+          target: ""
+          add_error_key: true
+          overwrite_keys: true
+
+  - type: filestream
+    id: airflow-taches
+    paths:
+      - /logs/airflow/dag_id=*/run_id=*/task_id=*/attempt=*.log
+    fields:
+      application: airflow
+    fields_under_root: true
+    # Une trace Python s'etend sur plusieurs lignes : on regroupe tout ce qui
+    # ne commence pas par "[horodatage]".
+    parsers:
+      - multiline:
+          type: pattern
+          pattern: '^\['
+          negate: true
+          match: after
+    processors:
+      - dissect:
+          tokenizer: "/logs/airflow/dag_id=%{dag_id}/run_id=%{run_id}/task_id=%{task_id}/attempt=%{tentative}.log"
+          field: "log.file.path"
+          target_prefix: "airflow"
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+logging.level: warning
+logging.metrics.enabled: false

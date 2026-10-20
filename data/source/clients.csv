@@ -1,0 +1,64 @@
+code_client;nom;prenom;email;telephone;ville;type_client;date_inscription
+CLI-0001;ZONGO;Awa;awa.zongo1@exemple.bf;07997554;Fada N'Gourma;PARTICULIER;2025-06-08
+CLI-0002;ZONGO;Ousmane;ousmane.zongo2@exemple.bf;51651673;Ouahigouya;PARTICULIER;2025-07-23
+CLI-0003;PALENFO;Souleymane;souleymane.palenfo3@exemple.bf;56787507;Banfora;PARTICULIER;2025-08-23
+CLI-0004;KINDA;Mariam;  MARIAM.KINDA4@EXEMPLE.BF ;71301193;Banfora;PROFESSIONNEL;2024-04-10
+CLI-0005;ZERBO;Inoussa;inoussa.zerbo5@exemple.bf;65220436;Bobo-Dioulasso;PARTICULIER;2025-02-10
+CLI-0006;YAMEOGO;Alizeta;alizeta.yameogo6@exemple.bf;07668695;Dédougou;PARTICULIER;2024-03-19
+CLI-0007;PALENFO;Rodrigue;rodrigue.palenfo7@exemple.bf;76301572;Ouagadougou;PARTICULIER;2025-04-13
+CLI-0008;KIEMA;Pascaline;pascaline.kiema8@exemple.bf;+226 51 32 40 08;Dédougou;PARTICULIER;2024-01-26
+CLI-0009;TIENDREBEOGO;Moussa;moussa.tiendrebeogo9@exemple.bf;71418144;Kaya;PARTICULIER;2025-08-22
+CLI-0010;ZONGO;Moussa;moussa.zongo10@exemple.bf;07841533;Ouahigouya;PARTICULIER;2025-05-17
+CLI-0011;KONE;Moussa;moussa.kone11@exemple.bf;51971225;Kaya;PARTICULIER;2025-05-05
+CLI-0012;OUEDRAOGO;Nafissatou;nafissatou.ouedraogo12@exemple.bf;75803027;Ouagadougou;PARTICULIER;2024-05-12
+CLI-0013;da;  WENDKOUNI;wendkouni.da13@exemple.bf;71752151;Banfora;PROFESSIONNEL;2025-03-15
+CLI-0014;ILBOUDO;Boukary;boukary.ilboudo14@exemple.bf;56707058;Dédougou;PARTICULIER;2025-04-25
+CLI-0015;PALENFO;Fatimata;fatimata.palenfo15@exemple.bf;07421611;Kaya;PARTICULIER;2024-11-11
+CLI-0016;DA;Pascaline;pascaline.da16@exemple.bf;56843992;Ouahigouya;PARTICULIER;2025-02-15
+CLI-0017;KONE;Aminata;aminata.kone17@exemple.bf;70157122;Kaya;PARTICULIER;2025-04-14
+CLI-0018;YAMEOGO;Rasmata;rasmata.yameogo18@exemple.bf;76726293;Banfora;PARTICULIER;2025-05-12
+CLI-0019;SOME;Moussa;moussa.some19@exemple.bf;07696147;Bobo-Dioulasso;PARTICULIER;2024-02-04
+CLI-0020;ZONGO;Clarisse;clarisse.zongo20@exemple.bf;07271404;Ouagadougou;PARTICULIER;2025-04-08
+CLI-0021;TAPSOBA;Inoussa;inoussa.tapsoba21@exemple.bf;71680052;ouagadougou;PARTICULIER;2024-09-29
+CLI-0022;NIKIEMA;Souleymane;souleymane.nikiema22@exemple.bf;66153468;Ouagadougou;PROFESSIONNEL;2025-04-05
+CLI-0023;TIENDREBEOGO;Nafissatou;nafissatou.tiendrebeogo23@exemple.bf;07977459;Tenkodogo;PARTICULIER;2024-03-26
+CLI-0024;ILBOUDO;Boukary;boukary.ilboudo24@exemple.bf;51046828;Bobo-Dioulasso;PARTICULIER;2025-07-13
+CLI-0025;BELEM;Hamidou;hamidou.belem25@exemple.bf;72005380;Fada N'Gourma;PARTICULIER;2024-11-16
+CLI-0026;GUIGMA;Inoussa;inoussa.guigma26@exemple.bf;72572316;Banfora;PARTICULIER;2024-08-16
+CLI-0027;KINDA;Pascaline;pascaline.kinda27@exemple.bf;07304800;Ouahigouya;PARTICULIER;2024-03-27
+CLI-0028;TRAORE;Nafissatou;nafissatou.traore28@exemple.bf;76532364;Ouahigouya;PARTICULIER;2025-02-25
+CLI-0029;DA;Rasmata;rasmata.da29@exemple.bf;66014818;Ouahigouya;PARTICULIER;2024-04-18
+CLI-0030;SAWADOGO;Hamidou;hamidou.sawadogo30@exemple.bf;65979940;Ouagadougou;PARTICULIER;2024-01-27
+CLI-0031;DIALLO;Wendkouni;wendkouni.diallo31@exemple.bf;76472006;Ouagadougou;PARTICULIER;2024-11-29
+CLI-0032;TIENDREBEOGO;Nafissatou;nafissatou.tiendrebeogo32@exemple.bf;51844039;Ouagadougou;PARTICULIER;2024-06-23
+CLI-0033;NIKIEMA;Moussa;moussa.nikiema33@exemple.bf;51352760;Tenkodogo;PARTICULIER;2025-04-14
+CLI-0034;KIEMA;Mariam;mariam.kiema34@exemple.bf;07418546;Bobo-Dioulasso;PARTICULIER;2024-02-04
+CLI-0035;COMPAORE;Issouf;issouf.compaore35@exemple.bf;07976178;Banfora;PARTICULIER;2024-02-19
+CLI-0036;BELEM;Rasmata;rasmata.belem36@exemple.bf;56745480;Ouagadougou;PARTICULIER;2024-01-21
+CLI-0037;NIKIEMA;Bibata;bibata.nikiema37@exemple.bf;72168181;Ouahigouya;PARTICULIER;2024-07-09
+CLI-0038;PALENFO;Moussa;moussa.palenfo38@exemple.bf;71401798;Ouagadougou;PARTICULIER;2024-11-08
+CLI-0039;KONE;Clarisse;clarisse.kone39@exemple.bf;56818149;Bobo-Dioulasso;PARTICULIER;2025-03-01
+CLI-0040;DIALLO;Bibata;bibata.diallo40@exemple.bf;56466178;Kaya;PARTICULIER;2024-05-02
+CLI-0041;KONE;Boukary;boukary.kone41@exemple.bf;75242572;Ouagadougou;PARTICULIER;2024-01-06
+CLI-0042;BELEM;Awa;awa.belem42@exemple.bf;66571536;Ouagadougou;PARTICULIER;2024-07-05
+CLI-0043;COMPAORE;Hamidou;hamidou.compaore43@exemple.bf;07720536;Kaya;PARTICULIER;2025-08-09
+CLI-0044;KINDA;Pascaline;pascaline.kinda44@exemple.bf;76582798;Dédougou;PARTICULIER;2025-08-04
+CLI-0045;SANOU;Nafissatou;nafissatou.sanou45@exemple.bf;76702868;Ouagadougou;PROFESSIONNEL;2025-07-23
+CLI-0046;KONE;Boukary;boukary.kone46@exemple.bf;66179594;Fada N'Gourma;PROFESSIONNEL;2024-04-18
+CLI-0047;YAMEOGO;Souleymane;souleymane.yameogo47@exemple.bf;72677321;Kaya;PARTICULIER;2024-04-18
+CLI-0048;OUATTARA;Mariam;mariam.ouattara48@exemple.bf;76977081;Ouagadougou;PARTICULIER;2024-11-18
+CLI-0049;KABORE;Aminata;aminata.kabore49@exemple.bf;66908584;Ouahigouya;PARTICULIER;2024-09-20
+CLI-0050;SAWADOGO;Boukary;boukary.sawadogo50@exemple.bf;75024093;Ouagadougou;PROFESSIONNEL;2024-11-13
+CLI-0051;PALENFO;Nafissatou;nafissatou.palenfo51@exemple.bf;65330274;Tenkodogo;PARTICULIER;2025-04-11
+CLI-0052;KIEMA;Arsène;arsene.kiema52@exemple.bf;70969664;Koudougou;PARTICULIER;2025-02-17
+CLI-0053;KINDA;Clarisse;clarisse.kinda53@exemple.bf;66708752;Fada N'Gourma;PARTICULIER;2024-05-02
+CLI-0054;DA;Wendkouni;wendkouni.da54@exemple.bf;76407945;Koudougou;PROFESSIONNEL;2024-10-25
+CLI-0055;KIEMA;Moussa;moussa.kiema55@exemple.bf;70295101;Bobo-Dioulasso;PARTICULIER;2024-12-04
+CLI-0056;GUIGMA;Boukary;boukary.guigma56@exemple.bf;76805194;Koudougou;PARTICULIER;2025-03-02
+CLI-0057;OUEDRAOGO;Rodrigue;rodrigue.ouedraogo57@exemple.bf;65207039;Ouagadougou;PARTICULIER;2025-07-28
+CLI-0058;ZONGO;Adama;adama.zongo58@exemple.bf;51128644;Ouagadougou;PROFESSIONNEL;2024-05-01
+CLI-0059;YAMEOGO;Arsène;arsene.yameogo59@exemple.bf;76030192;Tenkodogo;PROFESSIONNEL;2025-03-10
+CLI-0060;BAMOGO;Alizeta;alizeta.bamogo60@exemple.bf;66250930;Fada N'Gourma;PARTICULIER;2025-03-07
+CLI-0006;YAMEOGO;Alizeta;alizeta.yameogo6@exemple.bf;07668695;Dédougou;PARTICULIER;2024-03-19
+CLI-0061;;Inconnu;sans.nom@exemple.bf;70000000;Kaya;PARTICULIER;2025-02-10
+CLI-0062;KABORE;Ali;ali.kabore-at-exemple.bf;71000000;Kaya;PARTICULIER;2025-03-11

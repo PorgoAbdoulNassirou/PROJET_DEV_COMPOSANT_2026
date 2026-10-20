@@ -1,0 +1,22 @@
+# Dependances et artefacts
+node_modules/
+coverage/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Journaux et resultats de tests
+*.log
+api/logs/
+airflow/logs/
+tests/postman/resultats/*.xml
+
+# Configuration locale
+.env
+
+# Systeme / editeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+~$*

@@ -1,0 +1,44 @@
+{
+  "name": "api-ventes",
+  "version": "1.0.0",
+  "description": "API REST de gestion des ventes (Express.js, MongoDB) - Projet Dev. a base de composants, IBAM 2026, groupe 4 SIE",
+  "main": "src/server.js",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest --runInBand",
+    "test:couverture": "jest --runInBand --coverage"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 20000,
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js"
+    ],
+    "setupFiles": [
+      "<rootDir>/tests/env.js"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.js"
+    ]
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "joi": "^17.13.8",
+    "js-yaml": "^4.3.2",
+    "mongoose": "^8.24.5",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.3.1"
+  }
+}
