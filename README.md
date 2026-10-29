@@ -138,6 +138,7 @@ git clone https://github.com/PorgoAbdoulNassirou/PROJET_DEV_COMPOSANT_2026.git
 cd PROJET_DEV_COMPOSANT_2026
 
 # 2. (Facultatif) personnaliser les ports et mots de passe
+#    Sans fichier .env, les valeurs par défaut de docker-compose.yml sont utilisées
 cp .env.example .env
 
 # 3. Construire les images et démarrer la plateforme
